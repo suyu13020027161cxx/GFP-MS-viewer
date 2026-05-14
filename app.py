@@ -200,11 +200,40 @@ if page == "🌋 Volcano Plot":
                     x_max = st.number_input("X max", value=10.0,  step=0.5)
                     y_max = st.number_input("Y max", value=5.0,   step=0.5)
 
-            # ── Gene search ────────────────────────────────────────────────
-            st.markdown("**Gene search & highlight**")
+            # ── Gene search with categories ────────────────────────────────
+            st.markdown("**Gene search & highlight by category**")
+            st.caption("Format: `GENE_NAME:CATEGORY` or just `GENE_NAME`")
+            st.caption("Example: `TP53:tumor suppressors` or `MDM2:regulators`")
+            
             search_input   = st.text_area("Genes to highlight (one per line)",
-                                          placeholder="TP53\nMDM2\nBRCA1", height=100)
-            highlight_genes = [g.strip() for g in search_input.split("\n") if g.strip()]
+                                          placeholder="TP53:tumor suppressors\nMDM2:regulators\nBRCA1:tumor suppressors", 
+                                          height=100)
+            
+            # Parse gene input with categories
+            highlight_genes_dict = {}  # {gene: category}
+            for line in search_input.split("\n"):
+                line = line.strip()
+                if line:
+                    if ":" in line:
+                        gene, category = line.split(":", 1)
+                        highlight_genes_dict[gene.strip()] = category.strip()
+                    else:
+                        highlight_genes_dict[line] = "Highlighted"
+            
+            # Get unique categories and assign colors
+            categories = list(set(highlight_genes_dict.values()))
+            category_colors = {}
+            default_category_colors = ["#e05c5c", "#5c9ee0", "#f5c518", "#2dd4bf", "#8b5cf6", "#ec4899", "#f97316"]
+            for i, cat in enumerate(sorted(categories)):
+                category_colors[cat] = default_category_colors[i % len(default_category_colors)]
+            
+            # Show category colors
+            if categories:
+                st.markdown("**Category colors:**")
+                for cat in sorted(categories):
+                    st.markdown(f"<span style='color:{category_colors[cat]};'>●</span> {cat}", 
+                              unsafe_allow_html=True)
+            
             label_hits      = st.checkbox("Show gene labels on plot", value=True)
 
         # ── Plot ───────────────────────────────────────────────────────────
@@ -252,23 +281,37 @@ if page == "🌋 Volcano Plot":
                         hovertemplate="<b>%{text}</b><br>log2FC: %{x:.3f}<br>" + y_label + ": %{y:.3f}<extra></extra>"
                     ))
 
-                # Highlighted genes (case-insensitive match, drawn on top)
-                if highlight_genes:
-                    highlight_lower = [g.lower() for g in highlight_genes]
-                    hi   = df[df[gene_col].astype(str).str.lower().isin(highlight_lower)]
-                    mode = "markers+text" if label_hits else "markers"
-                    fig.add_trace(go.Scatter(
-                        x=hi[fc_col], y=hi["_y"],
-                        mode=mode,
-                        name="Highlighted",
-                        marker=dict(color=color_hi, size=dot_size + 6, symbol="circle",
-                                    line=dict(color="white", width=1.5)),
-                        text=hi[gene_col],
-                        textposition="top center",
-                        textfont=dict(color="#000000", size=11, family="Arial"),
-                        hovertemplate="<b>%{text}</b><br>log2FC: %{x:.3f}<br>" + y_label + ": %{y:.3f}<extra></extra>"
-                    ))
-                    if len(hi) == 0:
+                # Highlighted genes by category (case-insensitive match, drawn on top)
+                if highlight_genes_dict:
+                    for category, color in category_colors.items():
+                        # Find genes in this category
+                        genes_in_cat = [g for g, c in highlight_genes_dict.items() if c == category]
+                        genes_lower = [g.lower() for g in genes_in_cat]
+                        hi = df[df[gene_col].astype(str).str.lower().isin(genes_lower)]
+                        
+                        if not hi.empty:
+                            # Smart text positioning: alternate between top and bottom to avoid overlap
+                            text_positions = []
+                            for idx in range(len(hi)):
+                                if idx % 2 == 0:
+                                    text_positions.append("top center")
+                                else:
+                                    text_positions.append("bottom center")
+                            
+                            mode = "markers+text" if label_hits else "markers"
+                            fig.add_trace(go.Scatter(
+                                x=hi[fc_col], y=hi["_y"],
+                                mode=mode,
+                                name=category,
+                                marker=dict(color=color, size=dot_size + 6, symbol="circle",
+                                            line=dict(color="white", width=1.5)),
+                                text=hi[gene_col],
+                                textposition=text_positions[0] if len(text_positions) == 1 else "top center",
+                                textfont=dict(color=color, size=11, family="Arial"),
+                                hovertemplate="<b>%{text}</b><br>" + category + "<br>log2FC: %{x:.3f}<br>" + y_label + ": %{y:.3f}<extra></extra>"
+                            ))
+                    
+                    if len(highlight_genes_dict) > 0 and len(df[df[gene_col].astype(str).str.lower().isin([g.lower() for g in highlight_genes_dict.keys()])]) == 0:
                         st.warning("No matching genes found — check spelling or gene column selection.")
 
                 # Threshold lines
@@ -298,9 +341,11 @@ if page == "🌋 Volcano Plot":
                 m1, m2, m3, m4 = st.columns(4)
                 up   = (df["_class"] == "Significant Up").sum()
                 down = (df["_class"] == "Significant Down").sum()
+                total_hi = len(df[df[gene_col].astype(str).str.lower().isin([g.lower() for g in highlight_genes_dict.keys()])]) if highlight_genes_dict else 0
+                
                 for col_, val, lbl in zip(
                     [m1, m2, m3, m4],
-                    [len(df), up, down, len(highlight_genes)],
+                    [len(df), up, down, total_hi],
                     ["Total proteins", "Up-regulated", "Down-regulated", "Highlighted"]
                 ):
                     col_.markdown(f"""
@@ -330,13 +375,19 @@ if page == "🌋 Volcano Plot":
                     st.caption("Install `kaleido` (`pip install kaleido`) to enable image export.")
 
                 # ── Highlighted gene table ─────────────────────────────────
-                if highlight_genes:
-                    highlight_lower = [g.lower() for g in highlight_genes]
-                    hi = df[df[gene_col].astype(str).str.lower().isin(highlight_lower)]
-                    if not hi.empty:
+                if highlight_genes_dict:
+                    hi_all = pd.DataFrame()
+                    for gene, category in highlight_genes_dict.items():
+                        hi_gene = df[df[gene_col].astype(str).str.lower() == gene.lower()]
+                        if not hi_gene.empty:
+                            hi_gene = hi_gene.copy()
+                            hi_gene["Gene Category"] = category
+                            hi_all = pd.concat([hi_all, hi_gene], ignore_index=True)
+                    
+                    if not hi_all.empty:
                         st.markdown("**Highlighted gene details**")
-                        st.dataframe(hi[[gene_col, fc_col, pval_col, "_class"]].rename(
-                            columns={"_class": "Category", "_y": y_label}
+                        st.dataframe(hi_all[[gene_col, fc_col, pval_col, "_class", "Gene Category"]].rename(
+                            columns={"_class": "Expression Class"}
                         ), use_container_width=True)
 
             except Exception as e:
