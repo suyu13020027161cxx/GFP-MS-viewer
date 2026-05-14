@@ -220,19 +220,36 @@ if page == "🌋 Volcano Plot":
                     else:
                         highlight_genes_dict[line] = "Highlighted"
             
-            # Get unique categories and assign colors
-            categories = list(set(highlight_genes_dict.values()))
+            # Get unique categories and provide color pickers
+            categories = sorted(list(set(highlight_genes_dict.values())))
             category_colors = {}
-            default_category_colors = ["#e05c5c", "#5c9ee0", "#f5c518", "#2dd4bf", "#8b5cf6", "#ec4899", "#f97316"]
-            for i, cat in enumerate(sorted(categories)):
-                category_colors[cat] = default_category_colors[i % len(default_category_colors)]
             
-            # Show category colors
             if categories:
                 st.markdown("**Category colors:**")
-                for cat in sorted(categories):
-                    st.markdown(f"<span style='color:{category_colors[cat]};'>●</span> {cat}", 
-                              unsafe_allow_html=True)
+                color_cols = st.columns(min(3, len(categories)))  # Max 3 per row
+                
+                for idx, cat in enumerate(categories):
+                    col_idx = idx % len(color_cols)
+                    with color_cols[col_idx]:
+                        default_colors = [
+                            "#e05c5c",   # red
+                            "#5c9ee0",   # blue
+                            "#f5c518",   # yellow
+                            "#2dd4bf",   # teal
+                            "#8b5cf6",   # purple
+                            "#ec4899",   # pink
+                            "#f97316",   # orange
+                            "#06b6d4",   # cyan
+                            "#10b981",   # emerald
+                            "#f59e0b",   # amber
+                            "#ef4444",   # red-600
+                            "#3b82f6",   # blue-500
+                            "#8b5cf6",   # violet-500
+                            "#ec4899",   # rose-500
+                            "#14b8a6",   # teal-600
+                        ]
+                        color = st.color_picker(cat, default_colors[idx % len(default_colors)])
+                        category_colors[cat] = color
             
             label_hits      = st.checkbox("Show gene labels on plot", value=True)
 
