@@ -252,6 +252,7 @@ if page == "🌋 Volcano Plot":
                         category_colors[cat] = color
             
             label_hits      = st.checkbox("Show gene labels on plot", value=True)
+            label_size      = st.slider("Label font size", 8, 16, 10, 1) if label_hits else 10
 
         # ── Plot ───────────────────────────────────────────────────────────
         with col_plot:
@@ -304,18 +305,45 @@ if page == "🌋 Volcano Plot":
                         # Find genes in this category
                         genes_in_cat = [g for g, c in highlight_genes_dict.items() if c == category]
                         genes_lower = [g.lower() for g in genes_in_cat]
-                        hi = df[df[gene_col].astype(str).str.lower().isin(genes_lower)]
+                        hi = df[df[gene_col].astype(str).str.lower().isin(genes_lower)].copy()
                         
                         if not hi.empty:
-                            # Smart text positioning: alternate between top and bottom to avoid overlap
+                            # Smart text positioning to avoid overlaps
+                            # Sort by y position and alternate label positions based on x position
+                            hi = hi.sort_values(by="_y", ascending=False).reset_index(drop=True)
+                            
                             text_positions = []
-                            for idx in range(len(hi)):
-                                if idx % 2 == 0:
-                                    text_positions.append("top center")
+                            text_offsets = []  # Additional offset for spreading
+                            
+                            for idx, (_, row) in enumerate(hi.iterrows()):
+                                fc = row[fc_col]
+                                # Alternate: left/top for negative FC, right/bottom for positive FC
+                                if fc > 0:
+                                    # Right side genes
+                                    if idx % 3 == 0:
+                                        text_positions.append("top right")
+                                        text_offsets.append(8)
+                                    elif idx % 3 == 1:
+                                        text_positions.append("middle right")
+                                        text_offsets.append(6)
+                                    else:
+                                        text_positions.append("bottom right")
+                                        text_offsets.append(4)
                                 else:
-                                    text_positions.append("bottom center")
+                                    # Left side genes
+                                    if idx % 3 == 0:
+                                        text_positions.append("top left")
+                                        text_offsets.append(8)
+                                    elif idx % 3 == 1:
+                                        text_positions.append("middle left")
+                                        text_offsets.append(6)
+                                    else:
+                                        text_positions.append("bottom left")
+                                        text_offsets.append(4)
                             
                             mode = "markers+text" if label_hits else "markers"
+                            
+                            # Create text with adjusted positions
                             fig.add_trace(go.Scatter(
                                 x=hi[fc_col], y=hi["_y"],
                                 mode=mode,
@@ -323,8 +351,8 @@ if page == "🌋 Volcano Plot":
                                 marker=dict(color=color, size=dot_size + 6, symbol="circle",
                                             line=dict(color="white", width=1.5)),
                                 text=hi[gene_col],
-                                textposition=text_positions[0] if len(text_positions) == 1 else "top center",
-                                textfont=dict(color=color, size=11, family="Arial"),
+                                textposition=text_positions,
+                                textfont=dict(color=color, size=label_size, family="Arial"),
                                 hovertemplate="<b>%{text}</b><br>" + category + "<br>log2FC: %{x:.3f}<br>" + y_label + ": %{y:.3f}<extra></extra>"
                             ))
                     
