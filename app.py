@@ -265,7 +265,7 @@ if page == "🌋 Volcano Plot":
                                     line=dict(color="white", width=1.5)),
                         text=hi[gene_col],
                         textposition="top center",
-                        textfont=dict(color=color_hi, size=11),
+                        textfont=dict(color="#000000", size=11, family="Arial"),
                         hovertemplate="<b>%{text}</b><br>log2FC: %{x:.3f}<br>" + y_label + ": %{y:.3f}<extra></extra>"
                     ))
                     if len(hi) == 0:
@@ -280,7 +280,7 @@ if page == "🌋 Volcano Plot":
                     template="plotly_white",
                     paper_bgcolor="#ffffff",
                     plot_bgcolor="#f5f7fa",
-                    font=dict(family="IBM Plex Mono", color="#1a1a2e"),
+                    font=dict(family="Arial", color="#1a1a2e"),
                     xaxis_title="log2 Fold Change",
                     yaxis_title=y_label,
                     legend=dict(bgcolor="#ffffff", bordercolor="#dde1f0", borderwidth=1),
@@ -470,7 +470,7 @@ elif page == "🔥 Heatmap":
                         template="plotly_white",
                         paper_bgcolor="#ffffff",
                         plot_bgcolor="#f5f7fa",
-                        font=dict(family="IBM Plex Mono", color="#1a1a2e"),
+                        font=dict(family="Arial", color="#1a1a2e"),
                         height=650,
                         margin=dict(l=120, r=20, t=30, b=40),
                     )
